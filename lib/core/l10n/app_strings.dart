@@ -196,4 +196,21 @@ class AppStrings {
   String get loadingTeachers => pick('ගුරුවරු පූරණය වෙමින්...', 'Loading teachers...');
   String get couldNotLoadTeachers =>
       pick('ගුරු ලේඛනය පූරණය කළ නොහැක.', 'Could not load the teacher directory.');
+  String get attendanceSuccess =>
+      pick('පැමිණීම සාර්ථකව සටහන් විය.', 'Attendance marked successfully.');
+  String get alreadyMarked =>
+      pick('අද දින පැමිණීම දැනටමත් සටහන් කර ඇත.', 'Attendance already marked for today.');
+  String get leaveSubmitted =>
+      pick('නිවාඩු ඉල්ලීම සාර්ථකව යවන ලදී.', 'Leave request submitted successfully.');
+  String get actionFailed =>
+      pick('ක්‍රියාව අසාර්ථක විය. නැවත උත්සාහ කරන්න.', 'Action failed. Please try again.');
+  String get save => pick('සුරකින්න', 'Save');
+  String get cancel => pick('අවලංගු කරන්න', 'Cancel');
+  String get rejectionReasonPrompt =>
+      pick('ප්‍රතික්ෂේප කිරීමට හේතුව ඇතුළත් කරන්න', 'Enter rejection reason');
+  String get selectTeacher => pick('ගුරුවරයෙකු තෝරන්න', 'Select a teacher');
+  String get selectDate => pick('දිනය තෝරන්න', 'Select date');
+  String get toggleWorkingDay => pick('වැඩ කරන දිනයක් කරන්න', 'Toggle working day');
+  String get markAllRead => pick('සියල්ල කියවූ ලෙස සලකුණු කරන්න', 'Mark all as read');
+  String get noNotifications => pick('නව දැනුම්දීම් නොමැත', 'No new notifications');
 }
