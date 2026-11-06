@@ -17,7 +17,7 @@ class SchoolPeriod {
     final num = map['period_number'] is int
         ? map['period_number'] as int
         : int.tryParse(map['period_number']?.toString() ?? '') ??
-            (map['number'] is int ? map['number'] as int : 1);
+              (map['number'] is int ? map['number'] as int : 1);
     return SchoolPeriod(
       id: map['id']?.toString() ?? '',
       number: num,
@@ -29,7 +29,7 @@ class SchoolPeriod {
 
   Map<String, dynamic> toMap({String? schoolId}) {
     return {
-      if (schoolId != null) 'school_id': schoolId,
+      'school_id': ?schoolId,
       'period_number': number,
       'start_time': startTime,
       'end_time': endTime,
@@ -75,7 +75,8 @@ class TimetableSlot {
 
     String className = 'Class';
     if (map['school_classes'] is Map) {
-      className = (map['school_classes'] as Map)['name']?.toString() ?? className;
+      className =
+          (map['school_classes'] as Map)['name']?.toString() ?? className;
     } else if (map['class_name'] != null) {
       className = map['class_name'].toString();
     }
@@ -174,10 +175,12 @@ class ReplacementAssignment {
       final tt = map['timetables'] as Map;
       weekday = tt['weekday']?.toString() ?? weekday;
       if (tt['school_classes'] is Map) {
-        className = (tt['school_classes'] as Map)['name']?.toString() ?? className;
+        className =
+            (tt['school_classes'] as Map)['name']?.toString() ?? className;
       }
       if (tt['subjects'] is Map) {
-        subjectName = (tt['subjects'] as Map)['name']?.toString() ?? subjectName;
+        subjectName =
+            (tt['subjects'] as Map)['name']?.toString() ?? subjectName;
       }
       if (tt['periods'] is Map) {
         final p = tt['periods'] as Map;
@@ -199,7 +202,9 @@ class ReplacementAssignment {
       subject: subjectName,
       periodLabel: periodLabel,
       weekday: weekday,
-      status: map['status']?.toString() == 'assigned' ? 'Assigned' : 'Suggested',
+      status: map['status']?.toString() == 'assigned'
+          ? 'Assigned'
+          : 'Suggested',
       absentTeacherId: map['absent_teacher_id']?.toString() ?? '',
       coverTeacherId: map['replacement_teacher_id']?.toString() ?? '',
       timetableId: map['timetable_id']?.toString() ?? '',

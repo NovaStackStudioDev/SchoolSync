@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/l10n/l10n_scope.dart';
@@ -8,8 +9,9 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/school_logo.dart';
 import '../../principal/presentation/principal_dashboard.dart';
 import '../../teacher/presentation/teacher_dashboard.dart';
+import '../../profile/presentation/profile_screen.dart';
 import '../data/auth_repository.dart';
-import 'login_screen.dart';
+import 'welcome_screen.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -20,14 +22,22 @@ class AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<AuthGate> {
   final _auth = AuthRepository();
+  late final Stream<AuthState> _changes = _auth.authChanges;
+  bool _recovered = false;
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: _auth.authChanges,
+      stream: _changes,
       builder: (context, snapshot) {
         if (_auth.currentUser == null) {
-          return const LoginScreen();
+          return const WelcomeScreen();
+        }
+        if (snapshot.data?.event == AuthChangeEvent.passwordRecovery &&
+            !_recovered) {
+          return ResetPasswordScreen(
+            onDone: () => setState(() => _recovered = true),
+          );
         }
 
         return FutureBuilder<Map<String, dynamic>?>(
@@ -135,9 +145,9 @@ class _StatusScreen extends StatelessWidget {
               ),
               if (onRetry != null)
                 TextButton(
-                onPressed: onRetry,
-                child: Text(L10nScope.of(context).strings.retry),
-              ),
+                  onPressed: onRetry,
+                  child: Text(L10nScope.of(context).strings.retry),
+                ),
               TextButton(
                 onPressed: () async => onLogout(),
                 child: Text(L10nScope.of(context).strings.signOut),

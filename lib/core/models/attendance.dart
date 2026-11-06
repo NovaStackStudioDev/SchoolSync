@@ -78,7 +78,7 @@ class AttendanceRecord {
 
   Map<String, dynamic> toMap({String? schoolId}) {
     return {
-      if (schoolId != null) 'school_id': schoolId,
+      'school_id': ?schoolId,
       'teacher_id': teacherId,
       'attendance_date': DateFormat('yyyy-MM-dd').format(date),
       'status': status.name,

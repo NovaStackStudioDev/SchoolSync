@@ -23,8 +23,8 @@ class AppTheme {
         'Segoe UI',
       ],
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.greenDeep,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.greenDeep,
         elevation: 0,
         centerTitle: false,
       ),
@@ -41,16 +41,19 @@ class AppTheme {
           backgroundColor: AppColors.greenDark,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(28),
           ),
+          minimumSize: const Size(48, 48),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFDFE7DF)),
         ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppColors.greenDark, width: 2),
@@ -58,7 +61,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
-        indicatorColor: AppColors.gold.withValues(alpha: 0.45),
+        indicatorColor: AppColors.green.withValues(alpha: 0.12),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const TextStyle(

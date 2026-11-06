@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/models/user_role.dart';
+import '../../../core/widgets/live_data.dart';
 import '../../../core/l10n/l10n_scope.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/language_toggle.dart';
@@ -9,7 +11,8 @@ import '../data/auth_repository.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.role});
+  final UserRole? role;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -36,7 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
       await AuthRepository().login(
         email: _email.text,
         password: _password.text,
+        expectedRole: widget.role,
       );
+      if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
     } on AppAuthException catch (error) {
       if (mounted) {
         final strings = L10nScope.of(context).strings;
@@ -75,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [AppColors.greenDeep, AppColors.background],
+            colors: [Colors.white, AppColors.background],
             stops: [0.0, 0.38],
           ),
         ),
@@ -89,7 +94,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     const Align(
                       alignment: Alignment.centerRight,
-                      child: LanguageToggle(onDark: true),
+                      child: LanguageToggle(),
                     ),
                     const SchoolLogo(size: 112),
                     const SizedBox(height: 16),
@@ -97,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       strings.schoolName,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.greenDeep,
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
                       ),
@@ -108,7 +113,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? AppConstants.schoolName
                           : AppConstants.schoolNameSi,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: AppColors.gold, fontSize: 13),
+                      style: const TextStyle(
+                        color: AppColors.greenDark,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     Container(
@@ -150,12 +158,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               keyboardType: TextInputType.emailAddress,
                               decoration: InputDecoration(
                                 labelText: strings.email,
-                                prefixIcon: const Icon(Icons.mail_outline_rounded),
+                                prefixIcon: const Icon(
+                                  Icons.mail_outline_rounded,
+                                ),
                               ),
                               validator: (value) =>
                                   value == null || !value.contains('@')
-                                      ? strings.validEmail
-                                      : null,
+                                  ? strings.validEmail
+                                  : null,
                             ),
                             const SizedBox(height: 14),
                             TextFormField(
@@ -163,7 +173,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               obscureText: _obscure,
                               decoration: InputDecoration(
                                 labelText: strings.password,
-                                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                prefixIcon: const Icon(
+                                  Icons.lock_outline_rounded,
+                                ),
                                 suffixIcon: IconButton(
                                   onPressed: () =>
                                       setState(() => _obscure = !_obscure),
@@ -176,8 +188,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               validator: (value) =>
                                   value == null || value.isEmpty
-                                      ? strings.passwordRequired
-                                      : null,
+                                  ? strings.passwordRequired
+                                  : null,
                             ),
                             if (_error != null) ...[
                               const SizedBox(height: 12),
@@ -187,6 +199,33 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ],
                             const SizedBox(height: 20),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _loading
+                                    ? null
+                                    : () async {
+                                        if (!_email.text.contains('@')) {
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(strings.validEmail),
+                                            ),
+                                          );
+                                          return;
+                                        }
+                                        await runAction(
+                                          context,
+                                          () => AuthRepository().resetPassword(
+                                            _email.text,
+                                          ),
+                                          success: 'Password reset email sent.',
+                                        );
+                                      },
+                                child: const Text('Forgot Password?'),
+                              ),
+                            ),
                             FilledButton(
                               onPressed: _loading ? null : _login,
                               child: Padding(

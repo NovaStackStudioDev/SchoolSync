@@ -17,7 +17,7 @@ class LanguageToggle extends StatelessWidget {
         scope.strings.otherLanguage,
         style: TextStyle(
           fontWeight: FontWeight.w800,
-          color: onDark ? AppColors.gold : Colors.white,
+          color: onDark ? AppColors.gold : AppColors.greenDeep,
         ),
       ),
     );

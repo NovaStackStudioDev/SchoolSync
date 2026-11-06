@@ -72,7 +72,7 @@ class LeaveRequest {
 
   Map<String, dynamic> toMap({String? schoolId}) {
     return {
-      if (schoolId != null) 'school_id': schoolId,
+      'school_id': ?schoolId,
       'teacher_id': teacherId,
       'start_date': DateFormat('yyyy-MM-dd').format(fromDate),
       'end_date': DateFormat('yyyy-MM-dd').format(toDate),

@@ -32,6 +32,9 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
+.env
+.local-db-test/
+/android/build/
 
 # Symbolication related
 app.*.symbols

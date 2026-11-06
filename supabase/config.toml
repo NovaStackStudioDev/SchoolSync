@@ -1,0 +1,4 @@
+[functions.manage-teacher]
+# The function verifies the user's access token with auth.getUser and checks
+# the principal's database profile before using privileged APIs.
+verify_jwt = false

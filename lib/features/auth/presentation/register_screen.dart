@@ -62,6 +62,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _success = true;
           _message = L10nScope.of(context).strings.checkEmailThenLogin;
         });
+      } else {
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } on AppAuthException catch (error) {
       if (!mounted) return;
@@ -168,8 +170,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               validator: (value) =>
                                   value == null || value.trim().length < 3
-                                      ? strings.nameRequired
-                                      : null,
+                                  ? strings.nameRequired
+                                  : null,
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
@@ -177,12 +179,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               keyboardType: TextInputType.emailAddress,
                               decoration: InputDecoration(
                                 labelText: strings.email,
-                                prefixIcon: const Icon(Icons.mail_outline_rounded),
+                                prefixIcon: const Icon(
+                                  Icons.mail_outline_rounded,
+                                ),
                               ),
                               validator: (value) =>
                                   value == null || !value.contains('@')
-                                      ? strings.validEmail
-                                      : null,
+                                  ? strings.validEmail
+                                  : null,
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
@@ -190,7 +194,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               obscureText: _obscure,
                               decoration: InputDecoration(
                                 labelText: strings.password,
-                                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                prefixIcon: const Icon(
+                                  Icons.lock_outline_rounded,
+                                ),
                                 suffixIcon: IconButton(
                                   onPressed: () =>
                                       setState(() => _obscure = !_obscure),
@@ -203,8 +209,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               validator: (value) =>
                                   value == null || value.length < 6
-                                      ? strings.passwordShort
-                                      : null,
+                                  ? strings.passwordShort
+                                  : null,
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
@@ -212,7 +218,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               obscureText: _obscure,
                               decoration: InputDecoration(
                                 labelText: strings.confirmPassword,
-                                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                prefixIcon: const Icon(
+                                  Icons.lock_outline_rounded,
+                                ),
                               ),
                               validator: (value) => value != _password.text
                                   ? strings.passwordMismatch
@@ -223,7 +231,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               controller: _phone,
                               keyboardType: TextInputType.phone,
                               decoration: InputDecoration(
-                                labelText: '${strings.phone} (${strings.optional})',
+                                labelText:
+                                    '${strings.phone} (${strings.optional})',
                                 prefixIcon: const Icon(Icons.phone_outlined),
                               ),
                             ),
@@ -239,7 +248,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             const SizedBox(height: 16),
                             Text(
                               strings.subjectYouTeach,
-                              style: const TextStyle(fontWeight: FontWeight.w800),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Wrap(
