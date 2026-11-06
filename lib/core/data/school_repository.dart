@@ -1,5 +1,9 @@
 import 'package:intl/intl.dart';
 
+import 'dart:typed_data';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'school_database.dart';
 
 class SchoolRepository extends SchoolDatabase {
@@ -21,16 +25,24 @@ class SchoolRepository extends SchoolDatabase {
   Future<List<DbRow>> periods() => rows('periods', order: 'period_number');
   Future<List<DbRow>> subjects() => rows('subjects', order: 'name');
 
-  Future<List<DbRow>> timetable({String? teacher, String? weekday}) async {
+  Future<List<DbRow>> timetable({
+    String? teacher,
+    String? weekday,
+    DateTime? date,
+  }) async {
+    final asOf = SchoolDatabase.date(date ?? SchoolDatabase.now);
     var query = client
         .from('timetables')
         .select(
           '*, periods(*), school_classes(name), subjects(name), teachers(profiles!teachers_profile_id_fkey(full_name))',
         )
-        .eq('school_id', await schoolId());
+        .eq('school_id', await schoolId())
+        .eq('is_archived', false)
+        .lte('valid_from', asOf)
+        .or('valid_to.is.null,valid_to.gte.$asOf');
     if (teacher != null) query = query.eq('teacher_id', teacher);
     if (weekday != null) query = query.eq('weekday', weekday);
-    final result = await query;
+    final result = await readAll(query);
     return result.map(DbRow.from).toList()..sort(
       (a, b) => ((a['periods']?['period_number'] as int?) ?? 0).compareTo(
         (b['periods']?['period_number'] as int?) ?? 0,
@@ -153,7 +165,8 @@ class SchoolRepository extends SchoolDatabase {
         .select(
           '*, absent_teacher:teachers!absent_teacher_id(profiles!teachers_profile_id_fkey(full_name)), replacement_teacher:teachers!replacement_teacher_id(profiles!teachers_profile_id_fkey(full_name)), timetables(weekday,period_id,school_classes(name),subjects(name),periods(*))',
         )
-        .eq('school_id', await schoolId());
+        .eq('school_id', await schoolId())
+        .eq('status', 'assigned');
     if (date != null) {
       query = query.eq('assignment_date', SchoolDatabase.date(date));
     }
@@ -176,6 +189,7 @@ class SchoolRepository extends SchoolDatabase {
     final covered = covers.map((r) => r['timetable_id']).toSet();
     final slots = await timetable(
       weekday: DateFormat('EEEE', 'en').format(date),
+      date: date,
     );
     return slots
         .where(
@@ -185,50 +199,14 @@ class SchoolRepository extends SchoolDatabase {
   }
 
   Future<List<DbRow>> candidates(DbRow slot, DateTime date) async {
-    final attendance = await teacherAttendance(date);
-    final present = attendance
-        .where((r) => ['present', 'late'].contains(r['status']))
-        .map((r) => r['teacher_id'])
-        .toSet();
-    final slots = await timetable(
-      weekday: DateFormat('EEEE', 'en').format(date),
+    final result = await client.rpc(
+      'replacement_candidates',
+      params: {
+        'target_slot': slot['id'],
+        'target_date': SchoolDatabase.date(date),
+      },
     );
-    final busy = slots
-        .where((s) => _overlaps(s['periods'], slot['periods']))
-        .map((s) => s['teacher_id'])
-        .toSet();
-    final covers = await replacements(date: date);
-    final coverBusy = covers
-        .where((c) => _overlaps(c['timetables']?['periods'], slot['periods']))
-        .map((c) => c['replacement_teacher_id'])
-        .toSet();
-    final staff = await teachers();
-    final results = staff
-        .where(
-          (t) =>
-              t['id'] != slot['teacher_id'] &&
-              t['profiles']?['is_active'] == true &&
-              present.contains(t['id']) &&
-              !busy.contains(t['id']) &&
-              !coverBusy.contains(t['id']),
-        )
-        .map((t) {
-          final match = (t['teacher_subjects'] as List? ?? []).any(
-            (s) => s['subjects']?['id'] == slot['subject_id'],
-          );
-          final load = covers
-              .where((c) => c['replacement_teacher_id'] == t['id'])
-              .length;
-          return {
-            ...t,
-            'score': (match ? 100 : 60) - load * 5,
-            'reason':
-                '${match ? 'Teaches this subject · ' : ''}Present · Free period · $load covers today',
-          };
-        })
-        .toList();
-    results.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-    return results;
+    return (result as List).map((r) => DbRow.from(r as Map)).toList();
   }
 
   Future<void> assignReplacement(String slot, String teacher, DateTime date) =>
@@ -238,11 +216,96 @@ class SchoolRepository extends SchoolDatabase {
         'target_date': SchoolDatabase.date(date),
       });
 
-  bool _overlaps(dynamic a, dynamic b) =>
-      a is Map &&
-      b is Map &&
-      '${a['start_time']}'.compareTo('${b['end_time']}') < 0 &&
-      '${a['end_time']}'.compareTo('${b['start_time']}') > 0;
+  Future<DbRow> autoAssignReplacements(DateTime date) async {
+    final result = await client.rpc(
+      'auto_assign_replacements',
+      params: {'target_date': SchoolDatabase.date(date)},
+    );
+    SchoolDatabase.changed();
+    return DbRow.from(result as Map);
+  }
+
+  Future<void> cancelReplacement(String id) =>
+      rpc('cancel_replacement', {'assignment_id': id});
+
+  Future<List<DbRow>> timetableUploads() => rows(
+    'timetable_uploads',
+    select: '*,teachers(profiles!teachers_profile_id_fkey(full_name))',
+    order: 'created_at',
+  );
+
+  Future<DbRow> uploadTimetableFile(
+    String teacher,
+    String name,
+    String mime,
+    Uint8List bytes,
+  ) async {
+    if (!await isPrincipal() && await requireTeacherId() != teacher) {
+      throw StateError('Upload your own timetable.');
+    }
+    if (bytes.isEmpty || bytes.length > 10 * 1024 * 1024) {
+      throw StateError('Choose a Photo/PDF file up to 10 MB.');
+    }
+    final sid = await schoolId();
+    final safeName = name.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+    final path =
+        '$sid/$teacher/${DateTime.now().microsecondsSinceEpoch}/$safeName';
+    final bucket = client.storage.from('timetable-files');
+    await bucket.uploadBinary(
+      path,
+      bytes,
+      fileOptions: FileOptions(contentType: mime),
+    );
+    try {
+      final record = await client
+          .from('timetable_uploads')
+          .insert({
+            'school_id': sid,
+            'teacher_id': teacher,
+            'uploaded_by': client.auth.currentUser!.id,
+            'file_name': name,
+            'storage_path': path,
+            'mime_type': mime,
+          })
+          .select()
+          .single();
+      SchoolDatabase.changed();
+      return record;
+    } catch (_) {
+      // Remove only this unreferenced new object; retain the original database error.
+      try {
+        await bucket.remove([path]);
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  Future<Uint8List> timetableFile(DbRow upload) =>
+      client.storage.from('timetable-files').download(upload['storage_path']);
+
+  Future<void> publishTimetable(
+    DbRow upload,
+    List<DbRow> entries,
+    DateTime from,
+    bool dateOnly,
+  ) => rpc('publish_teacher_timetable', {
+    'upload_id': upload['id'],
+    'entries': entries,
+    'effective_date': SchoolDatabase.date(from),
+    'date_only': dateOnly,
+  });
+
+  Future<void> submitTimetable(
+    DbRow upload,
+    List<DbRow> entries,
+    DateTime from,
+    bool dateOnly,
+  ) => rpc('submit_timetable_document', {
+    'upload_id': upload['id'],
+    'entries': entries,
+    'effective_date': SchoolDatabase.date(from),
+    'date_only': dateOnly,
+  });
 
   Future<List<DbRow>> notifications() async =>
       (await client
@@ -350,6 +413,7 @@ class SchoolRepository extends SchoolDatabase {
           .select(
             'replacement_teacher_id,teachers!replacement_teacher_id(profiles!teachers_profile_id_fkey(full_name))',
           )
+          .eq('status', 'assigned')
           .eq('school_id', sid)
           .gte('assignment_date', start)
           .lt('assignment_date', end),

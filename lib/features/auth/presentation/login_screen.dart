@@ -56,7 +56,8 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (error) {
       if (mounted) {
         setState(() {
-          _error = '${L10nScope.of(context).strings.signInFailed}\n$error';
+          _error =
+              'Sign-in could not finish loading your school account.\n$error';
         });
       }
     } finally {

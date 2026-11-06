@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_page.dart';
 import '../../../core/widgets/live_data.dart';
 import '../../../core/widgets/record_form.dart';
+import 'timetable_uploads_screen.dart';
 
 class TimetableScreen extends StatefulWidget {
   const TimetableScreen({super.key, this.title});
@@ -18,6 +19,7 @@ class TimetableScreen extends StatefulWidget {
 class _TimetableScreenState extends State<TimetableScreen> {
   final _db = SchoolRepository();
   String _day = DateFormat('EEEE', 'en').format(SchoolDatabase.now);
+  DateTime _date = SchoolDatabase.now;
   bool _school = false;
   Future<DbRow> _load() async {
     final principal = await _db.isPrincipal();
@@ -26,6 +28,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       'slots': await _db.timetable(
         teacher: principal || _school ? null : await _db.requireTeacherId(),
         weekday: _day,
+        date: _date,
       ),
     };
   }
@@ -35,6 +38,39 @@ class _TimetableScreenState extends State<TimetableScreen> {
     appBar: BrandAppBar(title: widget.title ?? 'Timetable'),
     body: Column(
       children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              icon: const Icon(Icons.calendar_today_outlined),
+              label: Text(DateFormat('d MMM yyyy').format(_date)),
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _date,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null && mounted) {
+                  setState(() {
+                    _date = picked;
+                    _day = DateFormat('EEEE', 'en').format(picked);
+                  });
+                }
+              },
+            ),
+            IconButton(
+              tooltip: 'Timetable Photos / PDFs',
+              icon: const Icon(Icons.folder_open_outlined),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const TimetableUploadsScreen(),
+                ),
+              ),
+            ),
+          ],
+        ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.all(16),
@@ -54,7 +90,21 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   child: ChoiceChip(
                     label: Text(day.substring(0, 3)),
                     selected: _day == day,
-                    onSelected: (_) => setState(() => _day = day),
+                    onSelected: (_) => setState(() {
+                      final days = [
+                        'Monday',
+                        'Tuesday',
+                        'Wednesday',
+                        'Thursday',
+                        'Friday',
+                        'Saturday',
+                        'Sunday',
+                      ];
+                      _date = _date
+                          .subtract(Duration(days: _date.weekday - 1))
+                          .add(Duration(days: days.indexOf(day)));
+                      _day = day;
+                    }),
                   ),
                 ),
             ],
@@ -62,7 +112,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
         ),
         Expanded(
           child: LiveData<DbRow>(
-            key: ValueKey('$_day-$_school'),
+            key: ValueKey('${SchoolDatabase.date(_date)}-$_school'),
             load: _load,
             builder: (context, data) => ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
@@ -103,6 +153,38 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       onTap: data['principal'] == true
                           ? () => _editSlot(DbRow.from(slot))
                           : null,
+                      trailing: data['principal'] != true
+                          ? null
+                          : PopupMenuButton<String>(
+                              onSelected: (action) {
+                                if (action == 'edit') {
+                                  _editSlot(DbRow.from(slot));
+                                } else {
+                                  runAction(
+                                    context,
+                                    () => _db.saveTimetable({
+                                      ...DbRow.from(slot),
+                                      'effective_date': SchoolDatabase.date(
+                                        _date,
+                                      ),
+                                      'date_only': true,
+                                      'remove': true,
+                                    }, id: slot['id']),
+                                    success: 'Period removed for this date.',
+                                  );
+                                }
+                              },
+                              itemBuilder: (_) => const [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: Text('Edit period'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'remove',
+                                  child: Text('Remove for this date'),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
                 if (data['principal'] == true) ...[
@@ -111,6 +193,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     onPressed: () => _editSlot(null),
                     icon: const Icon(Icons.add),
                     label: const Text('Add Timetable Entry'),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TimetableUploadsScreen(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Upload / Update Timetable Photo or PDF'),
                   ),
                   TextButton.icon(
                     onPressed: _period,
@@ -155,6 +247,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
         context,
         title: slot == null ? 'Add Timetable Entry' : 'Edit Timetable Entry',
         fields: [
+          FieldSpec(
+            'scope',
+            'Apply changes',
+            initial: 'date',
+            options: {
+              'date': 'Only ${SchoolDatabase.date(_date)}',
+              'weekly': 'Weekly from ${SchoolDatabase.date(_date)}',
+            },
+          ),
           FieldSpec(
             'weekday',
             'Weekday',
@@ -206,7 +307,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
             },
           ),
         ],
-        save: (v) => _db.saveTimetable(v, id: slot?['id']),
+        save: (v) => _db.saveTimetable({
+          ...v,
+          'effective_date': SchoolDatabase.date(_date),
+          'date_only': v['scope'] == 'date',
+        }, id: slot?['id']),
       );
     });
   }

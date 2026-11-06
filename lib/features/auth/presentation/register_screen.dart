@@ -80,6 +80,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   String _textFor(AppAuthException error, AppStrings strings) {
     switch (error.code) {
+      case 'database_setup_missing':
+        return error.detail!;
       case 'already_registered':
         return strings.alreadyRegistered;
       case 'email_not_confirmed':

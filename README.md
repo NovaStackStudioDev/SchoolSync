@@ -2,6 +2,23 @@
 
 Flutter school management app with a green/yellow interface based on the supplied showcase. All operational records come from Supabase. Empty tables show empty states; failed reads and writes show errors and retry controls. No sample data is seeded or used as a fallback.
 
+## Fix an existing installation / sign-in error
+
+`PGRST202: Could not find public.provision_teacher` means Auth accepted the credentials but the registration database function is missing. Existing profiles now load without that function. To repair accounts that have no profile or teacher record, run **`supabase/repair_sign_in.sql`** in the SQL Editor of the same Supabase project as `.env`, then retry sign-in. Do not register the email again. The repair preserves existing roles and activation status; newly registered teachers still need principal activation.
+
+For the new upload and replacement features, run the complete **`supabase/schema_and_policies.sql`** instead: it includes the sign-in repair, private timetable file bucket/policies and all new RPCs. The script requests a [PostgREST schema-cache reload](https://supabase.com/kb/troubleshooting/refresh-postgrest-schema) after installing functions. Do not run the files in `supabase/tests/` against your real project.
+
+Editing `.env.example` does not configure the running app; update `.env` and restart/rebuild. Database changes require SQL Editor/admin access; a client publishable key cannot install SQL functions.
+
+## Timetable files, revisions and replacements
+
+1. Open **Timetable → folder icon → Upload Photo / PDF**. Files up to 10 MB are stored in a private bucket and can be viewed/zoomed in the app. Teachers can upload their own files; principals can upload for any active teacher.
+2. Confirm the periods from the document with weekday, class, subject and period. Photo/PDF files are source references, not automatic OCR: an attachment alone never creates timetable periods or free-period eligibility. Save the source as a draft or submit the confirmed periods for principal review.
+3. The principal opens the submission and **publishes** its periods. Choose **This date only** for a one-day change or switch it off to replace that teacher's weekly timetable from the effective date, including later planned revisions. Previous dates stay intact. Individual timetable entries can also be edited or removed for one date. A source file can be replaced with a revised Photo/PDF.
+4. Mark teacher attendance as present/late or absent/leave. Unmarked attendance remains unknown and is not treated as confirmed absence.
+5. Open **Automatic Replacement** for the date. **Automatically Assign Available Teachers** covers each absent teacher's scheduled periods using present, active, free teachers, preferring subject matches and lower cover workloads. If no teacher qualifies, the period remains uncovered and the result reports it. Tap a period to choose an eligible teacher manually.
+6. **Cancel / Reassign** releases a cover assignment and notifies the teacher. Cancel affected covers before changing their timetable periods. The server rechecks eligibility and conflicts on every assignment; running auto-assign again does not duplicate existing covers.
+
 ## Run
 
 1. Copy `.env.example` to `.env`, then set your project's URL and **publishable** key from Supabase Project Settings → API Keys. The legacy `SUPABASE_ANON_KEY` variable is also accepted. Never put a service-role/secret key in the Flutter app.
@@ -54,6 +71,6 @@ For UI preview PNGs in `build/previews/`, run `flutter test --dart-define=CAPTUR
 
 Database regression tests require a **disposable** PostgreSQL database, not the production Supabase project. Run these in order with `psql -v ON_ERROR_STOP=1`: `supabase/tests/bootstrap.sql`, `supabase/schema_and_policies.sql`, `supabase/tests/workflows.sql`. The bootstrap creates local auth roles; workflow fixtures are isolated in a transaction and rolled back. Tests cover tenant isolation, principal permissions, timetable overlap, class attendance, leave review, replacement eligibility and notification privacy.
 
-Local verification passed: nine Flutter tests, the PostgreSQL workflow suite (including repeated schema installation, duplicate check-in prevention and safe staff provisioning), static analysis and a web release build. The Android APK attempt could not finish because the SDK manager stalled downloading Android NDK `28.2.13676358`; no APK is claimed. After installing that dependency, rerun `flutter build apk --release`.
+Update verification passed 12 Flutter tests, static analysis, a web release build and both PostgreSQL workflow suites. `supabase/tests/timetable_workflows.sql` covers auto-assignment, daily/weekly revisions, teacher submission, atomic publishing and private file access. For local storage policy tests, run `storage_stub.sql` before the application schema. The previous Android APK attempt could not finish because the SDK manager stalled downloading Android NDK `28.2.13676358`; no APK is claimed. After installing that dependency, rerun `flutter build apk --release`.
 
 Server function authorization follows the [Supabase Edge Function authentication guidance](https://supabase.com/docs/guides/functions/auth-legacy-jwt); account creation uses the [Auth admin createUser API](https://supabase.com/docs/reference/javascript/auth-admin-createuser).

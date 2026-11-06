@@ -78,7 +78,25 @@ class AuthRepository {
   }
 
   Future<Map<String, dynamic>?> getProfile() async {
-    if (currentUser == null) return null;
+    final user = currentUser;
+    if (user == null) return null;
+    // Existing accounts do not depend on the registration provisioning RPC.
+    final existing = await _client
+        .from('profiles')
+        .select()
+        .eq('id', user.id)
+        .maybeSingle();
+    if (existing != null) {
+      if (existing['role'] == 'teacher' && existing['is_active'] == true) {
+        final teacher = await _client
+            .from('teachers')
+            .select('id')
+            .eq('profile_id', user.id)
+            .maybeSingle();
+        if (teacher == null) await provisionTeacherFromMetadata();
+      }
+      return existing;
+    }
     await provisionTeacherFromMetadata();
     return _client
         .from('profiles')
@@ -88,7 +106,20 @@ class AuthRepository {
   }
 
   Future<void> provisionTeacherFromMetadata() async {
-    if (currentUser != null) await _client.rpc('provision_teacher');
+    if (currentUser == null) return;
+    try {
+      await _client.rpc('provision_teacher');
+    } on PostgrestException catch (error) {
+      if (error.code == 'PGRST202') {
+        throw const AppAuthException(
+          'database_setup_missing',
+          'Your sign-in/account was accepted, but the school database setup is incomplete. '
+              'Run supabase/repair_sign_in.sql in this project’s Supabase SQL Editor, then retry. '
+              'You do not need to register again or change your password.',
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<void> logout() => _client.auth.signOut();
