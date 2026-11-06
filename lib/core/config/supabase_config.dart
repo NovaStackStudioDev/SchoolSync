@@ -8,6 +8,7 @@ class SupabaseConfig {
   static Future<void> initialize() async {
     await dotenv.load(fileName: '.env');
 
+    // ignore: deprecated_member_use
     await Supabase.initialize(
       url: dotenv.env['SUPABASE_URL']!,
       anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
