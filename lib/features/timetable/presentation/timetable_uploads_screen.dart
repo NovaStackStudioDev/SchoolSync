@@ -6,6 +6,7 @@ import 'package:pdfrx/pdfrx.dart';
 
 import '../../../core/data/school_database.dart';
 import '../../../core/data/school_repository.dart';
+import '../../../core/models/school_weekday.dart';
 import '../../../core/widgets/app_page.dart';
 import '../../../core/widgets/live_data.dart';
 import '../../../core/widgets/record_form.dart';
@@ -122,10 +123,14 @@ class _TimetableDocumentScreenState extends State<TimetableDocumentScreen> {
       _from = DateTime.parse(_upload!['effective_date']);
     }
     if (_upload != null) {
-      _dateOnly = _upload!['effective_date'] == null || _upload!['date_only'] == true;
+      _dateOnly =
+          _upload!['effective_date'] == null || _upload!['date_only'] == true;
       _entries.addAll(
         (_upload!['proposed_entries'] as List? ?? []).map(
-          (e) => DbRow.from(e as Map),
+          (e) => {
+            ...DbRow.from(e as Map),
+            'weekday': SchoolWeekday.name(e['weekday']),
+          },
         ),
       );
     }
@@ -316,7 +321,8 @@ class _TimetableDocumentScreenState extends State<TimetableDocumentScreen> {
                   decoration: const InputDecoration(labelText: 'Teacher'),
                   items: [
                     for (final t in options['teachers'])
-                      if (t['profiles']?['is_active'] == true || t['id'] == _teacher)
+                      if (t['profiles']?['is_active'] == true ||
+                          t['id'] == _teacher)
                         DropdownMenuItem(
                           value: t['id'] as String,
                           child: Text(

@@ -1,3 +1,5 @@
+import 'school_weekday.dart';
+
 class SchoolPeriod {
   const SchoolPeriod({
     required this.id,
@@ -107,7 +109,7 @@ class TimetableSlot {
 
     return TimetableSlot(
       id: map['id']?.toString() ?? '',
-      weekday: map['weekday']?.toString() ?? 'Monday',
+      weekday: SchoolWeekday.name(map['weekday'] ?? 'Monday'),
       period: resolvedPeriod,
       className: className,
       subject: subjectName,
@@ -173,7 +175,7 @@ class ReplacementAssignment {
 
     if (map['timetables'] is Map) {
       final tt = map['timetables'] as Map;
-      weekday = tt['weekday']?.toString() ?? weekday;
+      weekday = SchoolWeekday.name(tt['weekday'] ?? weekday);
       if (tt['school_classes'] is Map) {
         className =
             (tt['school_classes'] as Map)['name']?.toString() ?? className;

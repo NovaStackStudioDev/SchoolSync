@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'school_database.dart';
+import '../models/school_weekday.dart';
 
 class SchoolRepository extends SchoolDatabase {
   SchoolRepository({super.client});
@@ -31,6 +32,7 @@ class SchoolRepository extends SchoolDatabase {
     DateTime? date,
   }) async {
     final asOf = SchoolDatabase.date(date ?? SchoolDatabase.now);
+    final requestedDay = weekday == null ? null : SchoolWeekday.number(weekday);
     var query = client
         .from('timetables')
         .select(
@@ -41,13 +43,23 @@ class SchoolRepository extends SchoolDatabase {
         .lte('valid_from', asOf)
         .or('valid_to.is.null,valid_to.gte.$asOf');
     if (teacher != null) query = query.eq('teacher_id', teacher);
-    if (weekday != null) query = query.eq('weekday', weekday);
+    // Some installed databases store an integer weekday, others use names.
+    // Filter after the scoped, paginated read so a text filter cannot fail an
+    // integer column, and normalize values before any UI/edit form sees them.
     final result = await readAll(query);
-    return result.map(DbRow.from).toList()..sort(
-      (a, b) => ((a['periods']?['period_number'] as int?) ?? 0).compareTo(
-        (b['periods']?['period_number'] as int?) ?? 0,
-      ),
-    );
+    return result
+        .where(
+          (row) =>
+              requestedDay == null ||
+              SchoolWeekday.number(row['weekday']) == requestedDay,
+        )
+        .map((row) => {...row, 'weekday': SchoolWeekday.name(row['weekday'])})
+        .toList()
+      ..sort(
+        (a, b) => ((a['periods']?['period_number'] as int?) ?? 0).compareTo(
+          (b['periods']?['period_number'] as int?) ?? 0,
+        ),
+      );
   }
 
   Future<void> saveTimetable(DbRow values, {String? id}) async {

@@ -10,6 +10,14 @@ For the new upload and replacement features, run the complete **`supabase/schema
 
 Editing `.env.example` does not configure the running app; update `.env` and restart/rebuild. Database changes require SQL Editor/admin access; a client publishable key cannot install SQL functions.
 
+## Fix `invalid input syntax for type integer: "Sunday"`
+
+Some existing projects store `timetables.weekday` as an integer, while the earlier app filtered that column using names such as `Sunday`. The app now reads the school/date-scoped timetable with pagination, normalizes stored weekdays, and filters the requested day in Dart. Both integer weekdays (`1 = Monday` through `7 = Sunday`) and English weekday names work. Older Sunday value `0` is also recognized when reading records.
+
+Restart the updated Flutter app. For saving entries and running replacements against the legacy integer schema, run **`supabase/repair_weekday.sql`** once in your project's SQL Editor. It installs compatible functions and reloads the API schema cache while preserving the existing column type and records. New installations can use the updated full `schema_and_policies.sql`, which includes the same fix.
+
+Regression verification passed 17 Flutter tests, including the reported Sunday error, named weekday schemas and filtering across multiple pages. SQL workflows were checked against both text and integer columns. `supabase/tests/use_integer_weekdays.sql` switches only a disposable local test database to the legacy integer format; it is a test fixture, not the production repair.
+
 ## Timetable files, revisions and replacements
 
 1. Open **Timetable → folder icon → Upload Photo / PDF**. Files up to 10 MB are stored in a private bucket and can be viewed/zoomed in the app. Teachers can upload their own files; principals can upload for any active teacher.

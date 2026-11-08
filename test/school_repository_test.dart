@@ -14,12 +14,16 @@ void main() {
   var attendance = <Map<String, dynamic>>[];
   var teachers = <Map<String, dynamic>>[];
   var classes = <Map<String, dynamic>>[];
+  var timetableRows = <Map<String, dynamic>>[];
+  var integerWeekdays = true;
   setUp(() async {
     requests.clear();
     failTable = '';
     attendance = [];
     teachers = [];
     classes = [];
+    timetableRows = [];
+    integerWeekdays = true;
     final jwt =
         '${_part({'alg': 'HS256'})}.${_part({'sub': 'user-1', 'exp': DateTime.now().millisecondsSinceEpoch ~/ 1000 + 3600})}.signature';
     client = SupabaseClient(
@@ -48,6 +52,34 @@ void main() {
           );
         }
         final table = request.url.pathSegments.last;
+        if (table == 'timetables') {
+          final weekday = request.url.queryParameters['weekday'];
+          if (integerWeekdays &&
+              weekday != null &&
+              int.tryParse(weekday.replaceFirst('eq.', '')) == null) {
+            return http.Response(
+              jsonEncode({
+                'code': '22P02',
+                'message': 'invalid input syntax for type integer: "Sunday"',
+              }),
+              400,
+              request: request,
+              headers: {'content-type': 'application/json'},
+            );
+          }
+          final offset = int.parse(
+            request.url.queryParameters['offset'] ?? '0',
+          );
+          final limit = int.parse(
+            request.url.queryParameters['limit'] ?? '1000',
+          );
+          return http.Response(
+            jsonEncode(timetableRows.skip(offset).take(limit).toList()),
+            200,
+            request: request,
+            headers: {'content-type': 'application/json'},
+          );
+        }
         if (table == failTable) {
           return http.Response(
             jsonEncode({'message': 'Permission denied', 'code': '42501'}),
@@ -115,6 +147,60 @@ void main() {
     repository = SchoolRepository(client: client);
   });
   tearDown(() async => client.dispose());
+
+  test(
+    'Sunday timetable loads from the integer schema in the reported error',
+    () async {
+      timetableRows = [
+        {
+          'id': 'sunday',
+          'weekday': 7,
+          'periods': {'period_number': 1},
+        },
+        {
+          'id': 'monday',
+          'weekday': 1,
+          'periods': {'period_number': 2},
+        },
+      ];
+      final result = await repository.timetable(
+        weekday: 'Sunday',
+        date: DateTime(2026, 11, 8),
+      );
+      expect(result.map((r) => r['id']), ['sunday']);
+      expect(result.single['weekday'], 'Sunday');
+      final query = requests
+          .firstWhere((r) => r.url.pathSegments.last == 'timetables')
+          .url
+          .queryParameters;
+      expect(query['weekday'], isNull);
+      expect(query['school_id'], 'eq.school-1');
+      expect(query['valid_from'], 'lte.2026-11-08');
+    },
+  );
+  test('named weekday schemas still filter and normalize correctly', () async {
+    integerWeekdays = false;
+    timetableRows = [
+      {'id': 'sunday', 'weekday': 'Sunday'},
+      {'id': 'monday', 'weekday': 'Monday'},
+    ];
+    final result = await repository.timetable(weekday: 'Sunday');
+    expect(result.map((r) => r['id']), ['sunday']);
+    final all = await repository.timetable();
+    expect(all.map((r) => r['weekday']), ['Sunday', 'Monday']);
+  });
+  test('weekday filtering includes matching slots on later pages', () async {
+    timetableRows = List.generate(
+      501,
+      (i) => {'id': 'slot-$i', 'weekday': i == 500 ? 7 : 1},
+    );
+    final result = await repository.timetable(weekday: 'Sunday');
+    expect(result.map((r) => r['id']), ['slot-500']);
+    expect(
+      requests.where((r) => r.url.pathSegments.last == 'timetables').length,
+      2,
+    );
+  });
 
   test(
     'school lists include records beyond Supabase response limits',
